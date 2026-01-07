@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Recognition System</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+        color: #343a40;
+        padding: 20px 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .container {
+        max-width: 1000px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        font-weight: 600;
+        color: #0d6efd;
+      }
+      .header p {
+        color: #6c757d;
+      }
+      .video-container {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        margin-bottom: 30px;
+        background-color: #000;
+        position: relative;
+      }
+      #video_feed {
+        width: 100%;
+        display: block;
+      }
+      .video-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        font-size: 24px;
+        z-index: 100;
+        display: none;
+      }
+      .card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+      }
+      .card-header {
+        background-color: #0d6efd;
+        color: white;
+        font-weight: 600;
+        border-bottom: none;
+        padding: 15px 20px;
+      }
+      .card-body {
+        padding: 20px;
+      }
+      .nav-pills .nav-link.active {
+        background-color: #0d6efd;
+      }
+      .nav-pills .nav-link {
+        color: #0d6efd;
+        border-radius: 8px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+        padding: 10px 15px;
+      }
+      .tab-content {
+        padding-top: 20px;
+      }
+      .progress {
+        height: 25px;
+        border-radius: 8px;
+        margin: 15px 0;
+      }
+      .progress-bar {
+        transition: width 0.3s ease;
+      }
+      .status-box {
+        background-color: #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+      .btn-primary,
+      .btn-danger {
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        margin-right: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .step-number {
+        background-color: #0d6efd;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+      }
+      .users-table {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .spinner-border {
+        margin-right: 10px;
+      }
+      .alert {
+        margin-top: 15px;
+        border-radius: 8px;
+        padding: 15px;
+      }
+      .disabled-tab {
+        pointer-events: none;
+        opacity: 0.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1><i class="fas fa-camera"></i> Face Recognition System</h1>
+        <p>Capture, train, and recognize faces in real-time</p>
+      </div>
+
+      <!-- Video Feed -->
+      <div class="video-container mb-4">
+        <div id="loading_overlay" class="video-overlay">
+          <div class="spinner-border text-light" role="status"></div>
+          <span class="ms-2">Loading camera...</span>
+        </div>
+        <img
+          id="video_feed"
+          src="{{ url_for('video_feed') }}"
+          alt="Video Stream"
+          onload="hideLoading()"
+        />
+      </div>
+
+      <!-- Main Controls -->
+      <div class="card">
+        <div class="card-header">Face Recognition Pipeline</div>
+        <div class="card-body">
+          <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="pills-capture-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#pills-capture"
+                type="button"
+                role="tab"
+              >
+                <span class="step-number">1</span> Capture Face Data
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="pills-train-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#pills-train"
+                type="button"
+                role="tab"
+              >
+                <span class="step-number">2</span> Train Model
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="pills-recognize-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#pills-recognize"
+                type="button"
+                role="tab"
+              >
+                <span class="step-number">3</span> Recognize Faces
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="pills-tabContent">
+            <!-- Capture Tab -->
+            <div
+              class="tab-pane fade show active"
+              id="pills-capture"
+              role="tabpanel"
+              tabindex="0"
+            >
+              <h5>Step 1: Capture Training Images</h5>
+              <p>
+                Take multiple photos to train the model. Images are saved
+                automatically.
+              </p>
+
+              <div class="mb-3">
+                <label for="nameInput" class="form-label"
+                  >Enter Your Name:</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="nameInput"
+                  placeholder="e.g., John Smith"
+                />
+                <div class="form-text">
+                  This name will be displayed when your face is recognized.
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <button id="startCaptureBtn" class="btn btn-primary">
+                  <i class="fas fa-camera"></i> Start Capture
+                </button>
+                <button id="stopCaptureBtn" class="btn btn-danger" disabled>
+                  <i class="fas fa-stop-circle"></i> Stop Capture
+                </button>
+              </div>
+
+              <div
+                id="captureAlert"
+                class="alert alert-info d-none"
+                role="alert"
+              >
+                <i class="fas fa-info-circle"></i>
+                <span id="captureAlertText"></span>
+              </div>
+
+              <div id="progressContainer" class="d-none">
+                <label id="progressLabel" class="form-label"
+                  >Capturing: 0/120</label
+                >
+                <div class="progress">
+                  <div
+                    id="captureProgress"
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    aria-valuenow="0"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    style="width: 0%"
+                  >
+                    0%
+                  </div>
+                </div>
+              </div>
+
+              <div class="status-box mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Tips:</h6>
+                <ul>
+                  <li>Position your face in the center of the frame</li>
+                  <li>Good lighting will improve recognition accuracy</li>
+                  <li>Move your head slightly to capture different angles</li>
+                  <li>The system will capture 120 images automatically</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Train Tab -->
+            <div
+              class="tab-pane fade"
+              id="pills-train"
+              role="tabpanel"
+              tabindex="0"
+            >
+              <h5>Step 2: Train the Recognition Model</h5>
+              <p>
+                Train the model using your captured images. This may take a
+                moment.
+              </p>
+
+              <div class="mb-3">
+                <button id="trainBtn" class="btn btn-primary">
+                  <i class="fas fa-brain"></i> Train Model
+                </button>
+              </div>
+
+              <div id="trainingProgress" class="d-none">
+                <div class="d-flex align-items-center mb-2">
+                  <div class="spinner-border text-primary" role="status"></div>
+                  <span class="ms-2">Training in progress...</span>
+                </div>
+                <div class="progress">
+                  <div
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    style="width: 100%"
+                  ></div>
+                </div>
+              </div>
+
+              <div id="trainAlert" class="alert alert-info d-none" role="alert">
+                <i class="fas fa-info-circle"></i>
+                <span id="trainAlertText"></span>
+              </div>
+
+              <div class="status-box mt-3">
+                <h6>Trained Users:</h6>
+                <div class="users-table">
+                  <table class="table table-striped table-sm">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                      </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                      <!-- Users will be loaded here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recognize Tab -->
+            <div
+              class="tab-pane fade"
+              id="pills-recognize"
+              role="tabpanel"
+              tabindex="0"
+            >
+              <h5>Step 3: Real-Time Face Recognition</h5>
+              <p>
+                Start the face recognition system to identify people in
+                real-time.
+              </p>
+
+              <div class="mb-3">
+                <button id="startRecognitionBtn" class="btn btn-primary">
+                  <i class="fas fa-play-circle"></i> Start Recognition
+                </button>
+                <button id="stopRecognitionBtn" class="btn btn-danger" disabled>
+                  <i class="fas fa-stop-circle"></i> Stop Recognition
+                </button>
+              </div>
+
+              <div
+                id="recognizeAlert"
+                class="alert alert-info d-none"
+                role="alert"
+              >
+                <i class="fas fa-info-circle"></i>
+                <span id="recognizeAlertText"></span>
+              </div>
+
+              <div class="status-box mt-3">
+                <h6>
+                  <i class="fas fa-info-circle"></i> Recognition Information:
+                </h6>
+                <ul>
+                  <li>Names will appear above detected faces</li>
+                  <li>Confidence level shows below each face</li>
+                  <li>Higher confidence means more reliable recognition</li>
+                  <li>Look directly at the camera for best results</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Show loading overlay initially
+      document.getElementById("loading_overlay").style.display = "flex";
+
+      function hideLoading() {
+        document.getElementById("loading_overlay").style.display = "none";
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Initial status check
+        updateStatus();
+        loadUsers();
+
+        // Start capture
+        document
+          .getElementById("startCaptureBtn")
+          .addEventListener("click", function () {
+            const name = document.getElementById("nameInput").value.trim();
+            if (!name) {
+              showAlert("captureAlert", "Please enter a name", "danger");
+              return;
+            }
+
+            showAlert("captureAlert", "Starting capture...", "info");
+            document
+              .getElementById("progressContainer")
+              .classList.remove("d-none");
+
+            fetch("/start_capture", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ name: name }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  showAlert("captureAlert", data.message, "success");
+                  document.getElementById("startCaptureBtn").disabled = true;
+                  document.getElementById("stopCaptureBtn").disabled = false;
+
+                  // Start polling for updates
+                  startStatusPolling();
+                } else {
+                  showAlert("captureAlert", "Error: " + data.message, "danger");
+                }
+              })
+              .catch((error) => {
+                showAlert("captureAlert", "Server error occurred", "danger");
+                console.error("Error:", error);
+              });
+          });
+
+        // Stop capture
+        document
+          .getElementById("stopCaptureBtn")
+          .addEventListener("click", function () {
+            fetch("/stop_capture", {
+              method: "POST",
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                showAlert(
+                  "captureAlert",
+                  "Capture stopped. " + data.count + " images captured.",
+                  "warning"
+                );
+                document.getElementById("startCaptureBtn").disabled = false;
+                document.getElementById("stopCaptureBtn").disabled = true;
+                stopStatusPolling();
+              })
+              .catch((error) => {
+                showAlert("captureAlert", "Server error occurred", "danger");
+                console.error("Error:", error);
+              });
+          });
+
+        // Train model
+        document
+          .getElementById("trainBtn")
+          .addEventListener("click", function () {
+            document
+              .getElementById("trainingProgress")
+              .classList.remove("d-none");
+            document.getElementById("trainBtn").disabled = true;
+            showAlert("trainAlert", "Training in progress...", "info");
+
+            fetch("/train", {
+              method: "POST",
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                document
+                  .getElementById("trainingProgress")
+                  .classList.add("d-none");
+                document.getElementById("trainBtn").disabled = false;
+
+                if (data.success) {
+                  showAlert(
+                    "trainAlert",
+                    "Training completed: " + data.message,
+                    "success"
+                  );
+                  updateStatus();
+                  loadUsers();
+                } else {
+                  showAlert(
+                    "trainAlert",
+                    "Training failed: " + data.message,
+                    "danger"
+                  );
+                }
+              })
+              .catch((error) => {
+                document
+                  .getElementById("trainingProgress")
+                  .classList.add("d-none");
+                document.getElementById("trainBtn").disabled = false;
+                showAlert(
+                  "trainAlert",
+                  "Server error during training",
+                  "danger"
+                );
+                console.error("Error:", error);
+              });
+          });
+
+        // Start recognition
+        document
+          .getElementById("startRecognitionBtn")
+          .addEventListener("click", function () {
+            fetch("/start_recognition", {
+              method: "POST",
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  showAlert("recognizeAlert", "Recognition active", "success");
+                  document.getElementById(
+                    "startRecognitionBtn"
+                  ).disabled = true;
+                  document.getElementById(
+                    "stopRecognitionBtn"
+                  ).disabled = false;
+                } else {
+                  showAlert(
+                    "recognizeAlert",
+                    "Error: " + data.message,
+                    "danger"
+                  );
+                }
+              })
+              .catch((error) => {
+                showAlert("recognizeAlert", "Server error occurred", "danger");
+                console.error("Error:", error);
+              });
+          });
+
+        // Stop recognition
+        document
+          .getElementById("stopRecognitionBtn")
+          .addEventListener("click", function () {
+            fetch("/stop_recognition", {
+              method: "POST",
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                showAlert("recognizeAlert", "Recognition stopped", "warning");
+                document.getElementById("startRecognitionBtn").disabled = false;
+                document.getElementById("stopRecognitionBtn").disabled = true;
+              })
+              .catch((error) => {
+                showAlert("recognizeAlert", "Server error occurred", "danger");
+                console.error("Error:", error);
+              });
+          });
+
+        // Tab change event
+        const tabTriggerList = document.querySelectorAll(
+          '[data-bs-toggle="pill"]'
+        );
+        tabTriggerList.forEach((tabEl) => {
+          tabEl.addEventListener("shown.bs.tab", (event) => {
+            // Clear alerts when tab changes
+            document.getElementById("captureAlert").classList.add("d-none");
+            document.getElementById("trainAlert").classList.add("d-none");
+            document.getElementById("recognizeAlert").classList.add("d-none");
+
+            const targetId = event.target.getAttribute("data-bs-target");
+            if (targetId === "#pills-train") {
+              loadUsers();
+            }
+          });
+        });
+
+        // Status polling
+        let statusInterval;
+
+        function startStatusPolling() {
+          statusInterval = setInterval(updateStatus, 1000);
+        }
+
+        function stopStatusPolling() {
+          clearInterval(statusInterval);
+        }
+
+        function updateStatus() {
+          fetch("/get_status")
+            .then((response) => response.json())
+            .then((status) => {
+              // Update capture status
+              if (status.capturing) {
+                const percent = Math.round(
+                  (status.captureCount / status.maxCaptures) * 100
+                );
+                document.getElementById("captureProgress").style.width =
+                  percent + "%";
+                document.getElementById("captureProgress").textContent =
+                  percent + "%";
+                document.getElementById(
+                  "progressLabel"
+                ).textContent = `Capturing: ${status.captureCount}/${status.maxCaptures}`;
+
+                document
+                  .getElementById("progressContainer")
+                  .classList.remove("d-none");
+                document.getElementById("startCaptureBtn").disabled = true;
+                document.getElementById("stopCaptureBtn").disabled = false;
+              } else {
+                document.getElementById("startCaptureBtn").disabled = false;
+                document.getElementById("stopCaptureBtn").disabled = true;
+              }
+
+              // Update recognition status
+              if (status.recognizing) {
+                document.getElementById("startRecognitionBtn").disabled = true;
+                document.getElementById("stopRecognitionBtn").disabled = false;
+              } else {
+                document.getElementById("startRecognitionBtn").disabled =
+                  !status.modelTrained;
+                document.getElementById("stopRecognitionBtn").disabled = true;
+              }
+
+              // Update tab availability based on model status
+              const recognizeTab = document.getElementById(
+                "pills-recognize-tab"
+              );
+              if (status.modelTrained) {
+                recognizeTab.classList.remove("disabled-tab");
+              } else {
+                recognizeTab.classList.add("disabled-tab");
+              }
+            })
+            .catch((error) => {
+              console.error("Status update error:", error);
+            });
+        }
+
+        function loadUsers() {
+          fetch("/get_users")
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success && data.users) {
+                const usersTable = document.getElementById("usersTableBody");
+                usersTable.innerHTML = "";
+
+                for (const [id, name] of Object.entries(data.users)) {
+                  const row = document.createElement("tr");
+                  row.innerHTML = `<td>${id}</td><td>${name}</td>`;
+                  usersTable.appendChild(row);
+                }
+              }
+            })
+            .catch((error) => {
+              console.error("Error loading users:", error);
+            });
+        }
+
+        function showAlert(elementId, message, type) {
+          const alertElement = document.getElementById(elementId);
+          alertElement.className = `alert alert-${type}`;
+          document.getElementById(elementId + "Text").textContent = message;
+          alertElement.classList.remove("d-none");
+        }
+      });
+    </script>
+  </body>
+</html>
